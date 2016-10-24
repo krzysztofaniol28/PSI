@@ -16,6 +16,7 @@ public class Perceptron {
 
     private int howMany = 10000;
 
+
     public Perceptron(int inputNumbers) {
         this.inputNumbers = inputNumbers;
         weight = new double[inputNumbers];
@@ -41,45 +42,54 @@ public class Perceptron {
     public void trainNeutron(double[][] learnData) {
 
         clearWeights();
-
-        //Set<Integer> set = new HashSet<>();
+        int counter = 0;
+        /*
+        Set<Integer> set = new HashSet<>();
 
         int selectNeutron = 0;
         int counter = 0;
 
         // czy w zbiorze rozwiazan jest tyle elementow co ilość neuronow trenujacych
-        while (true) {
+        while (!(set.size() == learnData.length)) {
 
-            //selectNeutron = new Random().nextInt((learnData.length - 1) + 1);
-            /*
+            selectNeutron = new Random().nextInt((learnData.length - 1) + 1);
+
             if (checkAnswer(learnData[selectNeutron])) {
-
                 set.add(selectNeutron);
-                counter++;
-
+                //counter++;
             } else {
-
                 set.clear();
                 do {
                     //System.out.println("sdadsa");
                     updateWeights(learnData[selectNeutron]);
                     counter++;
                 } while (!checkAnswer(learnData[selectNeutron]));
-
                 set.add(selectNeutron);
             }
             */
-            for (int i = 0; i < learnData.length; i++)
-                updateWeights(learnData[selectNeutron]);
+
+        while (counter<howMany){
+
+            double blad;
+            double SSE=0;
+            double suma_bledow=0;
+            for (int i = 0; i < learnData.length; i++) {
+                updateWeights(learnData[i]);
+                blad = learnData[i][inputNumbers-1]-Math.signum(outputSignalSuma);
+                //System.out.println(blad);
+                suma_bledow+=blad;
+                SSE+=Math.pow(blad,2);
+            }
             counter++;
 
-
-            if (counter >= howMany)
+            System.out.println("It: "+ counter +" "+ toString()+"  SSE: "+ SSE+ "   MSE: "+ (SSE/learnData.length));
+            if(suma_bledow==0)
                 break;
 
 
+
         }
-        System.out.println(counter);
+        //System.out.println(counter);
 
     }
 
@@ -90,15 +100,11 @@ public class Perceptron {
 
     public boolean checkAnswer(double[] learnVector) {
         setInputs(learnVector);
-
-
-        //  neuron udzielil odpowiedzi zgodnie z wartoscia zawarta w wekorze trenujacym
+        //System.out.println("ss");
 
         if (learnVector[learnVector.length - 1] > 0 && outputSignal > 0) {
             return true;
         } else if (learnVector[learnVector.length - 1] < 0 && outputSignal < 0) {
-            return true;
-        } else if (learnVector[learnVector.length - 1] == 0 && outputSignal == 0) {
             return true;
         }
         // Neuron nie udzielil poprawnej odpowiedzi
@@ -117,25 +123,20 @@ public class Perceptron {
 
         if (outputSignalSuma > 0) {
             outputSignal = 1;
-        } else if (outputSignalSuma < 0) {
+        } else if (outputSignalSuma <= 0) {
             outputSignal = -1;
-        } else {
-            outputSignal = 0.0;
         }
 
     }
 
     private void updateWeights(double[] vector) {
 
-        if (outputSignal == 0.0) {
-            for (int i = 0; i < inputNumbers; i++) {
-                weight[i] += vector[vector.length - 1] * vector[i];
-            }
-        } else {
-            for (int i = 0; i < inputNumbers; i++) {
-                weight[i] += ((vector[vector.length - 1] - Math.signum(outputSignalSuma)) / 2) * vector[i];
-            }
+
+        for (int i = 0; i < inputNumbers; i++) {
+            weight[i] += ((vector[vector.length - 1] - Math.signum(outputSignalSuma))) * vector[i];
         }
+
+        //System.out.println(toString());
 
     }
 
