@@ -1,3 +1,5 @@
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
@@ -10,28 +12,31 @@ public class Perceptron {
 
     private int inputNumbers;                                               // liczba wejść
     private double[] weight;                                                // wektor wag
-    private double[] inputSignals;                                          // wektor podany na wejscie wytrenowanego  neuronu
+    // private double[] inputSignals;                                          // wektor podany na wejscie wytrenowanego  neuronu
     private double outputSignal;                                            // wartosc odpowiedzi neuronu
-    private double outputSignalSuma;                                        // suma odpowiedzi neuronu
+    //private double outputSignalSuma;                                        // suma odpowiedzi neuronu
 
-    private int howMany = 10000;
-
+    private int howManyMax = 100;
+    private double learningRate = 0.1;
+    private double bias;
+    private double desireError = 0.2;
 
     public Perceptron(int inputNumbers) {
         this.inputNumbers = inputNumbers;
         weight = new double[inputNumbers];
-        inputSignals = new double[inputNumbers];
     }
 
-    public Perceptron(int inputNumbers, int howMany) {
-        this.inputNumbers = inputNumbers;
-        weight = new double[inputNumbers];
-        inputSignals = new double[inputNumbers];
-        this.howMany = howMany;
-    }
 
     public void setHowMany(int howMany) {
-        this.howMany = howMany;
+        this.howManyMax = howMany;
+    }
+
+    public void setLearningRate(double learningRate) {
+        this.learningRate = learningRate;
+    }
+
+    public void setDesireError(double desireError) {
+        this.desireError = desireError;
     }
 
     @Override
@@ -39,58 +44,65 @@ public class Perceptron {
         return "Perceptron{" + "weight=" + Arrays.toString(weight);
     }
 
-    public void trainNeutron(double[][] learnData) {
+    public void trainNeutron(double[][] learnData, double[][] validData) throws FileNotFoundException {
 
         clearWeights();
+        System.out.println("ITERATION START");
         int counter = 0;
-        /*
-        Set<Integer> set = new HashSet<>();
-
-        int selectNeutron = 0;
-        int counter = 0;
-
-        // czy w zbiorze rozwiazan jest tyle elementow co ilość neuronow trenujacych
-        while (!(set.size() == learnData.length)) {
-
-            selectNeutron = new Random().nextInt((learnData.length - 1) + 1);
-
-            if (checkAnswer(learnData[selectNeutron])) {
-                set.add(selectNeutron);
-                //counter++;
-            } else {
-                set.clear();
-                do {
-                    //System.out.println("sdadsa");
-                    updateWeights(learnData[selectNeutron]);
-                    counter++;
-                } while (!checkAnswer(learnData[selectNeutron]));
-                set.add(selectNeutron);
-            }
-            */
-
-        while (counter<howMany){
-
-            double blad;
-            double SSE=0;
-            double suma_bledow=0;
-            for (int i = 0; i < learnData.length; i++) {
-                updateWeights(learnData[i]);
-                blad = learnData[i][inputNumbers-1]-Math.signum(outputSignalSuma);
-                //System.out.println(blad);
-                suma_bledow+=blad;
-                SSE+=Math.pow(blad,2);
-            }
+        double globalError, MAPE;                   //globalError to MSE
+        double error = 0.0;
+        PrintWriter writeTraining = new PrintWriter("training.txt");
+        writeTraining.println("Epoch: \tMSE: \tMAPE: ");
+        PrintWriter writeVerify = new PrintWriter("verifying.txt");
+        writeVerify.println("Epoch: \tMSE: \tMAPE: \tUnder: \tOver");
+        do {
             counter++;
+            double output;
+            globalError = 0.0;
+            MAPE = 0.0;
 
-            System.out.println("It: "+ counter +" "+ toString()+"  SSE: "+ SSE+ "   MSE: "+ (SSE/learnData.length));
-            if(suma_bledow==0)
-                break;
+            for (double[] aLearnData : learnData) {
+                output = neutronAnswer(aLearnData);
+                error = aLearnData[inputNumbers] - output;
+                if (error != 0.0) {
+                    updateWeights(aLearnData, error);
+                    globalError += error * error;
+                    MAPE += Math.abs(error / neutronAnswer(aLearnData));
+                }
+            }
+            MAPE = MAPE * 100 / learnData.length;
+            //wypisanie wszystkiego
+            System.out.println("Epoch: " + counter + " MSE: " + (globalError / learnData.length) + " MAPE: " + MAPE);
+            writeTraining.println(counter + "\t" + (globalError / learnData.length) + "\t" + MAPE);
+            System.out.println(toString());
 
+            double globalErrorValid = 0.0;
+            double MAPEvalid = 0.0;
+            int under = 0, over = 0;
 
+            for (double[] aValidData : validData) {
+                output = neutronAnswer(aValidData);
+                error = aValidData[inputNumbers] - output;
+                if (error != 0.0) {
+                    if (output > aValidData[inputNumbers])
+                        over++;
+                    else
+                        under++;
+                    globalErrorValid += error * error;
+                    MAPEvalid += Math.abs(error / neutronAnswer(aValidData));
+                }
+            }
 
+            MAPEvalid = MAPEvalid * 100 / validData.length;
+            System.out.println("Validating");
+            System.out.println("Epoch: " + counter + " MSE: " + (globalErrorValid / validData.length) + " MAPE: " + MAPEvalid);
+            System.out.println("Under: " + under + " Over: " + over+"\n\n");
+            writeVerify.println(counter + "\t" + (globalErrorValid / validData.length) + "\t" + MAPEvalid+"\t" + under + "\t" + over);
         }
+        while (counter < howManyMax && globalError > desireError);
         //System.out.println(counter);
-
+        writeTraining.close();
+        writeVerify.close();
     }
 
     public double neutronAnswer(double[] vecotrIn) {
@@ -98,52 +110,29 @@ public class Perceptron {
         return outputSignal;
     }
 
-    public boolean checkAnswer(double[] learnVector) {
-        setInputs(learnVector);
-        //System.out.println("ss");
-
-        if (learnVector[learnVector.length - 1] > 0 && outputSignal > 0) {
-            return true;
-        } else if (learnVector[learnVector.length - 1] < 0 && outputSignal < 0) {
-            return true;
-        }
-        // Neuron nie udzielil poprawnej odpowiedzi
-        else {
-            return false;
-        }
-    }
 
     private void setInputs(double[] vector) {
-        outputSignalSuma = 0;
-
+        double outputSignalSuma = bias;
         for (int i = 0; i < inputNumbers; i++) {
-            inputSignals[i] = vector[i];
-            outputSignalSuma += inputSignals[i] * weight[i];
+            outputSignalSuma += vector[i] * weight[i];
         }
-
-        if (outputSignalSuma > 0) {
-            outputSignal = 1;
-        } else if (outputSignalSuma <= 0) {
-            outputSignal = -1;
-        }
+        outputSignal = Math.signum(outputSignalSuma);
 
     }
 
-    private void updateWeights(double[] vector) {
-
-
+    private void updateWeights(double[] vector, double error) {
         for (int i = 0; i < inputNumbers; i++) {
-            weight[i] += ((vector[vector.length - 1] - Math.signum(outputSignalSuma))) * vector[i];
+            weight[i] += learningRate * error * vector[i];
         }
-
-        //System.out.println(toString());
-
+        bias += learningRate * error;
     }
 
     private void clearWeights() {
         for (int i = 0; i < inputNumbers; i++) {
             weight[i] = new Random().nextDouble();
         }
+        bias = new Random().nextDouble();
     }
+
 
 }
